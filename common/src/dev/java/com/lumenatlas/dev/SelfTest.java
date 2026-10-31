@@ -247,7 +247,21 @@ public final class SelfTest {
         waitUntil("predictions computed", () -> session.seedMap().pendingTasks() == 0, 40, 6000);
         step("pick targets", () -> pickTargets(mc, session), 10);
         step("compare with vanilla locate", () -> compareWithVanilla(mc, session), 10);
-        step("compare offline worldgen", () -> compareOfflineWorldgen(mc, session), 10);
+        step("compare offline worldgen", () -> offlineCompare = compareOfflineWorldgen(mc), 0);
+        waitUntil("offline worldgen compared", () -> offlineCompare != null && offlineCompare.isDone(), 10, 2400);
+        step("check offline worldgen", () -> {
+            int[] r = offlineCompare.isDone() ? offlineCompare.join() : new int[] {0, -2};
+            check("offline (manual seed) worldgen matches the server: " + r[0] + " cells equal, " + r[1] + " different", r[1] == 0 && r[0] > 0);
+        }, 10);
+        step("ask server for seed", () -> {
+            boolean available = com.lumenatlas.seed.ServerSeedRequest.isAvailable();
+            check("/seed is offered by the server's command tree", available);
+            com.lumenatlas.seed.ServerSeedRequest.start(seed -> LumenAtlas.LOGGER.info("[SelfTest] /seed answered {}", seed));
+        }, 0);
+        waitUntil("seed answer", () -> com.lumenatlas.seed.ServerSeedRequest.state() != com.lumenatlas.seed.ServerSeedRequest.State.WAITING, 5, 200);
+        step("check seed answer", () -> check("seed read from the server with /seed",
+            com.lumenatlas.seed.ServerSeedRequest.state() == com.lumenatlas.seed.ServerSeedRequest.State.RECEIVED
+                && com.lumenatlas.seed.ServerSeedRequest.receivedSeed() == SEED), 5);
         step("visit targets", () -> scheduleVisits(mc, session), 0);
     }
 
@@ -437,7 +451,9 @@ public final class SelfTest {
             for (SeedMapService.Prediction p : TARGETS.values()) {
                 Holder<Structure> holder = structures.get(Identifier.parse(p.structureId())).orElse(null);
                 if (holder == null) continue;
-                BlockPos found = level.findNearestMapStructure(HolderSet.direct(holder), new BlockPos(p.x(), 64, p.z()), 4, false);
+                var nearest = level.getChunkSource().getGenerator().findNearestMapStructure(level, HolderSet.direct(holder),
+                    new BlockPos(p.x(), 64, p.z()), 4, false);
+                BlockPos found = nearest == null ? null : nearest.getFirst();
                 boolean match = found != null && Math.abs((found.getX() >> 4) - (p.x() >> 4)) <= 3 && Math.abs((found.getZ() >> 4) - (p.z() >> 4)) <= 3;
                 check("vanilla locate agrees for " + p.structureId() + " at " + p.x() + ", " + p.z()
                     + " (vanilla: " + (found == null ? "none" : found.getX() + ", " + found.getZ()) + ")", match);
@@ -450,15 +466,18 @@ public final class SelfTest {
      * The manual-seed path (registries rebuilt from the vanilla data pack, as on a server) must predict exactly what
      * the integrated server's real generator predicts.
      */
-    private static void compareOfflineWorldgen(Minecraft mc, WorldSession session) {
-        CompletableFuture<int[]> result = CompletableFuture.supplyAsync(() -> {
+    private static CompletableFuture<int[]> offlineCompare;
+
+    /** Runs in the background; the game keeps running while the vanilla data loads. */
+    private static CompletableFuture<int[]> compareOfflineWorldgen(Minecraft mc) {
+        return CompletableFuture.supplyAsync(() -> {
             try {
                 WorldgenContext offline = WorldgenLoader.create(SEED, WorldgenLoader.Preset.DEFAULT, OVERWORLD);
                 MinecraftServer server = mc.getSingleplayerServer();
                 ServerLevel level = server.overworld();
                 var source = level.getChunkSource();
                 WorldgenContext real = new WorldgenContext(level.getSeed(), level.registryAccess(), source.getGenerator(), source.randomState(),
-                    source.getGeneratorState(), server.getStructureTemplateManager(), level);
+                    source.getGeneratorState(), Compat.templates(server), level);
                 int same = 0;
                 int different = 0;
                 for (Holder<StructureSet> holder : real.structureSets()) {
@@ -488,9 +507,6 @@ public final class SelfTest {
                 return new int[] {0, -1};
             }
         });
-        mc.managedBlock(result::isDone);
-        int[] r = result.join();
-        check("offline (manual seed) worldgen matches the server: " + r[0] + " cells equal, " + r[1] + " different", r[1] == 0 && r[0] > 0);
     }
 
     // ---------------------------------------------------------------------------------------------------------
@@ -547,7 +563,7 @@ public final class SelfTest {
     }
 
     private static Step shot(Minecraft mc, String name) {
-        return new Step("screenshot " + name, () -> Screenshot.grab(mc.gameDirectory, name + ".png", mc.gameRenderer.mainRenderTarget(), 1,
+        return new Step("screenshot " + name, () -> Screenshot.grab(mc.gameDirectory, name + ".png", DevCompat.mainRenderTarget(mc), 1,
             msg -> LumenAtlas.LOGGER.info("[SelfTest] screenshot {}", name)), null, 15, 0);
     }
 

@@ -9,7 +9,8 @@ port the mod to a newer Minecraft version.
 common/src/core/java      Minecraft-independent logic (map region codec, shading, marker clustering,
                           waypoint storage, config, seed parsing). Unit tested by core-tests/.
 common/src/main/java      Everything else that is shared by both loaders (uses Minecraft classes only).
-common/src/compat/<ver>   The few calls that differ between Minecraft versions (one folder per version family).
+common/src/compat/<ver>   The few calls that differ between Minecraft versions: 26.1 (26.1.x), 26.2 and 26.3.
+                          Each folder has the same Compat class (and a DevCompat for the self test).
 common/src/dev/java       The in-game self test. Compiled for development runs, excluded from release jars.
 fabric/                   Fabric entry point (+ fabric.mod.json).
 neoforge/                 NeoForge entry point (+ neoforge.mods.toml template).
@@ -116,6 +117,19 @@ version the mod is built for. Limitations are listed in the README.
 * If both copies of `waypoints.json` or `markers.json` are unreadable, the broken file is copied to
   `<name>.broken-<time>` before anything new is written, so a bug can never silently destroy user data.
 * Saves happen every 30 seconds, when screens close and when the world is left.
+
+## What differs between the supported versions
+
+| Area | 26.1.x | 26.2 | 26.3 |
+|---|---|---|---|
+| Open screen | `Minecraft.screen` | `Gui.screen()` | `Gui.screen()` |
+| HUD hidden / overlay message | `Options.hideGui`, `Gui` | `Gui.hud` | `Gui.hud` |
+| Camera | `GameRenderer.getMainCamera()` | `mainCamera()` | `mainCamera()` |
+| GPU texture/sampler classes | `com.mojang.blaze3d.textures` | same | `com.mojang.renderpearl.api` |
+| World generation | `RandomState.create(settings, noises, seed)`, sampler inside `RandomState` | same | new density-function system: explicit climate sampler |
+| Input | GLFW key codes | GLFW | SDL key codes (constants are compiled per version) |
+
+Everything else, including all GUI code, compiles unchanged on all three.
 
 ## Porting to a new Minecraft version
 

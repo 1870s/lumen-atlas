@@ -7,13 +7,11 @@ import net.minecraft.core.RegistryAccess;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.LevelHeightAccessor;
 import net.minecraft.world.level.biome.BiomeSource;
-import net.minecraft.world.level.biome.Climate;
 import net.minecraft.world.level.chunk.ChunkGenerator;
 import net.minecraft.world.level.chunk.ChunkGeneratorStructureState;
 import net.minecraft.world.level.levelgen.LegacyRandomSource;
 import net.minecraft.world.level.levelgen.RandomState;
 import net.minecraft.world.level.levelgen.WorldgenRandom;
-import net.minecraft.world.level.levelgen.densityfunction.SamplerContext;
 import net.minecraft.world.level.levelgen.structure.Structure;
 import net.minecraft.world.level.levelgen.structure.StructureSet;
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplateManager;
@@ -34,7 +32,7 @@ public final class WorldgenContext {
     public final ChunkGeneratorStructureState structureState;
     public final StructureTemplateManager templates;
     public final LevelHeightAccessor heightAccessor;
-    private final Climate.Sampler climateSampler;
+    private final Object climateCache;
 
     public WorldgenContext(long seed, RegistryAccess registries, ChunkGenerator generator, RandomState randomState,
                            ChunkGeneratorStructureState structureState, StructureTemplateManager templates, LevelHeightAccessor heightAccessor) {
@@ -45,7 +43,7 @@ public final class WorldgenContext {
         this.structureState = structureState;
         this.templates = templates;
         this.heightAccessor = heightAccessor;
-        this.climateSampler = randomState.createClimateSampler(SamplerContext.builder().enableCaches().build());
+        this.climateCache = com.lumenatlas.compat.Compat.climateCache(randomState);
         structureState.ensureStructuresGenerated();
     }
 
@@ -91,8 +89,8 @@ public final class WorldgenContext {
 
     private Optional<Found> tryStructure(Holder<Structure> holder, ChunkPos chunk) {
         Structure structure = holder.value();
-        Structure.GenerationContext context = new Structure.GenerationContext(registries, generator, generator.getBiomeSource(),
-            climateSampler, randomState, templates, seed, chunk, heightAccessor, structure.biomes()::contains);
+        Structure.GenerationContext context = com.lumenatlas.compat.Compat.generationContext(registries, generator, randomState,
+            climateCache, templates, seed, chunk, heightAccessor, structure.biomes()::contains);
         return structure.findValidGenerationPoint(context).map(stub -> new Found(holder, stub.position().getX(),
             stub.position().getY(), stub.position().getZ()));
     }

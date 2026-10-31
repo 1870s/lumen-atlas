@@ -9,6 +9,7 @@ import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
 import net.neoforged.fml.loading.FMLPaths;
+import net.neoforged.neoforge.client.event.ClientChatReceivedEvent;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.client.event.RegisterGuiLayersEvent;
 import net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent;
@@ -42,5 +43,8 @@ public class LumenAtlasNeoForge {
         modBus.addListener(RegisterGuiLayersEvent.class, event ->
             event.registerBelow(VanillaGuiLayers.CHAT, LumenAtlas.HUD_LAYER_ID, LumenAtlas::renderHud));
         NeoForge.EVENT_BUS.addListener(ClientTickEvent.Post.class, event -> LumenAtlas.onClientTick());
+        NeoForge.EVENT_BUS.addListener(ClientChatReceivedEvent.System.class, event -> {
+            if (!event.isOverlay()) LumenAtlas.onSystemMessage(event.getMessage());
+        });
     }
 }

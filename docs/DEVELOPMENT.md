@@ -9,9 +9,10 @@
 ## Commands
 
 ```bash
-./gradlew build                          # unit tests + Fabric and NeoForge jars -> build/libs/
+./gradlew build                          # unit tests + all 6 jars (26.1.x, 26.2, 26.3 x Fabric/NeoForge) -> build/libs/
+./gradlew build -Plumen_versions=26.3    # only some Minecraft versions
 ./gradlew :core-tests:test               # unit tests only (no Minecraft needed)
-./gradlew :fabric-26.3:runClient         # start a Fabric development client
+./gradlew :fabric-26.3:runClient         # start a Fabric development client (also fabric-26.1, fabric-26.2)
 ./gradlew :neoforge-26.3:runClient       # start a NeoForge development client
 ./gradlew :fabric-26.3:runSelfTest       # automated in-game test, see below
 ./gradlew :neoforge-26.3:runSelfTest
@@ -30,8 +31,9 @@ placed in `~/.gradle/lumenatlas/` because Windows cannot start programs from pat
    * compares it with vanilla's structure search (`ServerLevel#findNearestMapStructure`, the code behind `/locate`),
    * flies there in spectator mode and checks that the detector marks the same structure,
 4. compares the offline world generation used for manually entered seeds with the integrated server's,
-5. visits a predicted Nether fortress,
-6. takes the screenshots used in the README and quits.
+5. reads the seed back from the server with `/seed` (the "Read seed from server" button),
+6. visits a predicted Nether fortress,
+7. takes the screenshots used in the README and quits.
 
 Start-up notices that wait for a click (accessibility onboarding and similar) are clicked through automatically.
 Every check is logged as `[SelfTest] PASS ...` or `[SelfTest] FAIL ...`, followed by a summary. Screenshots are in the

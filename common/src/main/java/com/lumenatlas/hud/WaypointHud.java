@@ -32,7 +32,7 @@ public final class WaypointHud {
     public static void render(GuiGraphicsExtractor g, Minecraft mc, WorldSession session, float partialTick) {
         LumenConfig config = ConfigManager.get();
         if (!config.showWaypointsInWorld) return;
-        Camera camera = mc.gameRenderer.mainCamera();
+        Camera camera = com.lumenatlas.compat.Compat.camera(mc);
         Vec3 cam = camera.position();
         Matrix4f view = camera.getViewRotationMatrix(new Matrix4f());
         float fov = camera.getFov();

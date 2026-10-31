@@ -46,9 +46,6 @@ public class WorldMapScreen extends Screen {
     private static final int LAYER_PANEL_W = 150;
     private static final String[] VANILLA_DIMENSIONS = {"minecraft:overworld", "minecraft:the_nether", "minecraft:the_end"};
 
-    private static final java.util.function.Supplier<com.mojang.renderpearl.api.textures.GpuSampler> EDGE_SAMPLER =
-        () -> com.mojang.blaze3d.systems.RenderSystem.getSamplerCache().getClampToEdge(com.mojang.renderpearl.api.textures.FilterMode.NEAREST);
-
     /** Development hook for the self test's screenshots: when set, the map behaves as if the mouse were here. */
     public static int[] debugMouseOverride;
 
@@ -339,7 +336,7 @@ public class WorldMapScreen extends Screen {
             g.pose().scale(drawScale, drawScale);
             // Clamp-to-edge sampling: with fractional zoom a repeating sampler would bleed the opposite edge in.
             var texture = textures.texture(r[0], r[1], lod);
-            if (texture != null) g.blit(texture.getTextureView(), EDGE_SAMPLER.get(), 0, 0, texSize, texSize, 0f, 1f, 0f, 1f);
+            if (texture != null) Compat.blitClamped(g, texture, texSize);
             g.pose().popMatrix();
         }
     }

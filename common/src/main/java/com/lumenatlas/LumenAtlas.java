@@ -88,6 +88,7 @@ public final class LumenAtlas {
         if (!initialized) onClientSetup();
         try {
             session = WorldSession.update(session, mc);
+            com.lumenatlas.seed.ServerSeedRequest.tick();
             if (session != null) session.tick(mc);
             handleKeys(mc);
         } catch (RuntimeException e) {
@@ -123,14 +124,23 @@ public final class LumenAtlas {
         while (Keybinds.CYCLE_VIEW.consumeClick()) {
             ConfigManager.get().minimapView = ConfigManager.get().minimapView.next();
             ConfigManager.save();
-            mc.gui.hud.setOverlayMessage(Component.translatable("lumenatlas.view." + ConfigManager.get().minimapView.name().toLowerCase(java.util.Locale.ROOT)), false);
+            Compat.overlayMessage(mc, Component.translatable("lumenatlas.view." + ConfigManager.get().minimapView.name().toLowerCase(java.util.Locale.ROOT)));
+        }
+    }
+
+    /** Called by the loader for every system (non-player) chat message the client receives. */
+    public static void onSystemMessage(net.minecraft.network.chat.Component message) {
+        try {
+            com.lumenatlas.seed.ServerSeedRequest.onSystemMessage(message);
+        } catch (RuntimeException e) {
+            LOGGER.error("Lumen Atlas could not read a chat message", e);
         }
     }
 
     /** HUD layer: minimap and in-world waypoint labels. */
     public static void renderHud(GuiGraphicsExtractor graphics, DeltaTracker deltaTracker) {
         Minecraft mc = Minecraft.getInstance();
-        if (session == null || mc.player == null || mc.gui.hud.isHidden()) return;
+        if (session == null || mc.player == null || Compat.hudHidden(mc)) return;
         try {
             float partialTick = deltaTracker.getGameTimeDeltaPartialTick(false);
             WaypointHud.render(graphics, mc, session, partialTick);

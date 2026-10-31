@@ -29,7 +29,7 @@ include 'core-tests'
 // One Fabric and one NeoForge project per supported Minecraft version, all compiled from the same common/ code.
 // Each versions/<mc>/target.properties holds that version's Minecraft, loader and API versions.
 // Add a version by creating versions/<mc>/ and listing it here (see docs/DEVELOPMENT.md).
-def supportedVersions = providers.gradleProperty('lumen_versions').getOrElse('26.3').split(',')*.trim()
+def supportedVersions = providers.gradleProperty('lumen_versions').getOrElse('26.1,26.2,26.3').split(',')*.trim()
 supportedVersions.each { mc ->
     ['fabric', 'neoforge'].each { loader ->
         include "${loader}-${mc}"

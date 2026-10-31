@@ -5,7 +5,7 @@
 <h1 align="center">Lumen Atlas</h1>
 
 <p align="center">
-  A client-side minimap and world map for Minecraft <b>26.3</b> on <b>Fabric</b> and <b>NeoForge</b>,<br>
+  A client-side minimap and world map for Minecraft <b>26.1 – 26.3</b> on <b>Fabric</b> and <b>NeoForge</b>,<br>
   with automatic structure markers, a full waypoint system and a built-in, offline seed map.
 </p>
 
@@ -45,7 +45,8 @@
 **Seed map** (Chunkbase-style, but inside the game and offline)
 * Predicts where structures are from the world seed – using **Minecraft's own structure placement code**, not a
   re-implementation, so predictions follow this exact game version.
-* Singleplayer: uses the world's real seed automatically. Servers and Realms: enter the seed if you know it.
+* Singleplayer: uses the world's real seed automatically. Servers and Realms: one click reads it with `/seed` if the
+  server allows you that command (operators); otherwise enter it yourself if you know it.
 * Predicted structures have **dashed** icons; once you actually find the structure, the solid "discovered" icon
   replaces the prediction.
 
@@ -76,23 +77,28 @@ All screenshots are real, taken by the automated in-game test (`runSelfTest`) on
 
 ## Supported versions
 
-| Minecraft | Fabric | NeoForge | Java |
+| Minecraft | Jar | Fabric | NeoForge |
 |---|---|---|---|
-| 26.3 | Fabric Loader ≥ 0.20.1 with Fabric API 0.165.0+26.3 | 26.3.0.100 or newer | 25 |
+| 26.1, 26.1.1, 26.1.2 | `…-mc26.1.x-<version>.jar` | Loader ≥ 0.20.1, Fabric API 0.155.3+26.1.2 | 26.1.2.125 or newer |
+| 26.2 | `…-mc26.2-<version>.jar` | Loader ≥ 0.20.1, Fabric API 0.161.0+26.2 | 26.2.0.93 or newer |
+| 26.3 | `…-mc26.3-<version>.jar` | Loader ≥ 0.20.1, Fabric API 0.165.0+26.3 | 26.3.0.100 or newer |
 
-26.3 is the current release as of October 2026. The build is set up for several Minecraft versions side by side
-(`versions/<mc>/`), see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#porting-to-a-new-minecraft-version).
+Java 25 is required by Minecraft 26.x itself. The 26.1.x jar is built against 26.1.2 (the first 26.1 release with a
+stable NeoForge) and declares 26.1 – 26.1.2 as compatible; NeoForge only had beta builds for 26.1 and 26.1.1.
+All jars are built from the same source; the few calls that differ between versions are in
+`common/src/compat/<version>` (see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#porting-to-a-new-minecraft-version)).
 
 ## Installation
 
 **Fabric**
-1. Install [Fabric Loader](https://fabricmc.net/use/) for Minecraft 26.3.
-2. Put [Fabric API](https://modrinth.com/mod/fabric-api) and `lumenatlas-fabric-mc26.3-<version>.jar` into
-   `.minecraft/mods`.
+1. Install [Fabric Loader](https://fabricmc.net/use/) for your Minecraft version.
+2. Put [Fabric API](https://modrinth.com/mod/fabric-api) and the Fabric jar for your Minecraft version
+   (`lumenatlas-fabric-mc<version>-<mod version>.jar`) into `.minecraft/mods`.
 
 **NeoForge**
-1. Install [NeoForge](https://neoforged.net/) 26.3.0.100 or newer.
-2. Put `lumenatlas-neoforge-mc26.3-<version>.jar` into `.minecraft/mods`.
+1. Install [NeoForge](https://neoforged.net/) for your Minecraft version (see the table above).
+2. Put the NeoForge jar for your Minecraft version (`lumenatlas-neoforge-mc<version>-<mod version>.jar`) into
+   `.minecraft/mods`.
 
 The mod is **client-only**. Do not install it on servers; it works on any server (vanilla, modded, Realms)
 without server-side support.
@@ -143,8 +149,10 @@ each structure's own `findValidGenerationPoint` check) on a background thread, n
 first.
 
 * **Singleplayer:** the integrated server's real world generator is used, so data packs and world types are honored.
-* **Servers / Realms:** open *World map → Seed Map* and enter the seed (numbers or text, like the vanilla world
-  creation screen) and the world type (Default, Large Biomes, Amplified). The vanilla world generation data is then
+* **Servers / Realms:** open *World map → Seed Map*. If you may use `/seed` on that server (operators, LAN worlds
+  with cheats), click *Read seed from server* – the button is only enabled when the server offers you the command.
+  Otherwise enter the seed (numbers or text, like the vanilla world creation screen). Also pick the world type
+  (Default, Large Biomes, Amplified). The vanilla world generation data is then
   loaded in the background, the same way the "Create World" screen loads it.
 
 Tested in game (see [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)): for 16 structure types the predictions agree with
@@ -153,8 +161,9 @@ exactly the same as the server for all 1,215 compared grid cells.
 
 ## Limitations
 
-* **Multiplayer seeds are not available to the client.** The seed map only works on servers if you enter the seed.
-  There is no way around this, and Lumen Atlas does not try to guess or obtain it.
+* **Servers do not send their seed to the client** (only a one-way hash of it that cannot be turned back into the
+  seed). On servers the seed map needs `/seed` permission or a seed you enter. Lumen Atlas deliberately does not
+  try to "crack" the seed from the world, which many servers forbid.
 * **Predictions describe vanilla world generation** of this Minecraft version. Servers with world-generation
   mods or data packs, worlds created in older versions (chunks generated before an update), custom dimensions and
   the "debug" or "superflat" world types (manual seeds) can differ. In singleplayer the real generator is used, so
@@ -172,11 +181,12 @@ exactly the same as the server for all 1,215 compared grid cells.
 
 ## Testing status
 
-Verified automatically on both Fabric and NeoForge (Minecraft 26.3, singleplayer, `runSelfTest`, 35 checks each):
-world creation, map scanning, death waypoints, seed-map predictions compared with vanilla's own structure search for
-16 structure types, detection of all visited structures, no false markers, the offline (manual-seed) world
-generation matching the server exactly, the Nether, and every screen shown above. The Minecraft-independent code has
-38 unit tests.
+Verified automatically on **all six builds** – Fabric and NeoForge for Minecraft 26.1.x (26.1.2), 26.2 and 26.3 –
+with the in-game self test (`runSelfTest`, 37 checks each, singleplayer): world creation, map scanning, death
+waypoints, seed-map predictions compared with vanilla's own structure search for 16 structure types, detection of
+all visited structures, no false markers, the offline (manual-seed) world generation matching the server exactly,
+reading the seed with `/seed`, the Nether, and every screen shown above. The Minecraft-independent code has 38 unit
+tests.
 
 Not yet verified in a real setup: joining a multiplayer server or Realm, and running next to Sodium/Iris. The mod is
 designed for both (client-only, no mixins, no world-render hooks), but please report anything you notice.

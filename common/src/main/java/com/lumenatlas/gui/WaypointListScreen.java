@@ -80,7 +80,7 @@ public class WaypointListScreen extends LumenScreen {
             } catch (IOException ignored) {
                 // opening will report it
             }
-            com.mojang.blaze3d.Blaze3D.openPath(dir);
+            Compat.openPath(dir);
         }));
         addRenderableWidget(new LumenButton(panelRight - 74, by, 64, 18, Component.translatable("gui.done"), b -> onClose()));
     }

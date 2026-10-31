@@ -2,6 +2,7 @@ package com.lumenatlas.gui;
 
 import com.lumenatlas.config.ConfigManager;
 import com.lumenatlas.seed.SeedMapService;
+import com.lumenatlas.seed.ServerSeedRequest;
 import com.lumenatlas.world.WorldSession;
 import java.util.List;
 import java.util.OptionalLong;
@@ -34,7 +35,7 @@ public class SeedMapScreen extends LumenScreen {
 
     @Override
     protected int panelHeight() {
-        return 250;
+        return 270;
     }
 
     private SeedMapService seeds() {
@@ -69,6 +70,10 @@ public class SeedMapScreen extends LumenScreen {
                     seeds().setPreset(seeds().preset().next());
                     feedback = null;
                 }).tooltip(Component.translatable("lumenatlas.seed.preset.tooltip")));
+            LumenButton fromServer = addRenderableWidget(new LumenButton(left, y + 48, 180, 18,
+                Component.translatable("lumenatlas.seed.from_server"), b -> readFromServer()));
+            fromServer.active = ServerSeedRequest.isAvailable();
+            fromServer.tooltip(Component.translatable(fromServer.active ? "lumenatlas.seed.from_server.tooltip" : "lumenatlas.seed.from_server.denied"));
             addRenderableWidget(new LumenButton(left + 184, y + 24, 90, 18, Component.translatable("lumenatlas.seed.clear"), b -> {
                 seeds().setManualSeed("");
                 seedBox.setValue("");
@@ -77,6 +82,31 @@ public class SeedMapScreen extends LumenScreen {
             }));
         }
         addRenderableWidget(new LumenButton(panelRight - 90, panelBottom - 26, 80, 18, Component.translatable("gui.done"), b -> onClose()));
+    }
+
+    private void readFromServer() {
+        feedback = Component.translatable("lumenatlas.seed.from_server.waiting");
+        feedbackColor = Theme.TEXT_DIM;
+        boolean sent = ServerSeedRequest.start(seed -> {
+            seeds().setManualSeed(Long.toString(seed));
+            if (seedBox != null) seedBox.setValue(Long.toString(seed));
+            feedback = Component.translatable("lumenatlas.seed.from_server.ok", Long.toString(seed));
+            feedbackColor = Theme.GOOD;
+        });
+        if (!sent) {
+            feedback = Component.translatable("lumenatlas.seed.from_server.denied");
+            feedbackColor = Theme.BAD;
+        }
+    }
+
+    @Override
+    public void tick() {
+        if (ServerSeedRequest.state() == ServerSeedRequest.State.FAILED && feedback != null
+            && feedback.getContents() instanceof net.minecraft.network.chat.contents.TranslatableContents t
+            && t.getKey().equals("lumenatlas.seed.from_server.waiting")) {
+            feedback = Component.translatable("lumenatlas.seed.from_server.timeout");
+            feedbackColor = Theme.BAD;
+        }
     }
 
     private void apply() {
@@ -108,7 +138,7 @@ public class SeedMapScreen extends LumenScreen {
             g.text(font, Component.translatable("lumenatlas.seed.multiplayer"), left, y, Theme.TEXT, false);
             g.text(font, Component.translatable("lumenatlas.seed.field"), left, y + 22, Theme.TEXT_DIM, false);
         }
-        int infoY = seeds().isSingleplayerSeed() ? panelTop + 92 : panelTop + 146;
+        int infoY = seeds().isSingleplayerSeed() ? panelTop + 92 : panelTop + 168;
         String dim = session.dimension();
         Component status = switch (seeds().status(dim)) {
             case DISABLED -> Component.translatable("lumenatlas.seed.status.disabled");

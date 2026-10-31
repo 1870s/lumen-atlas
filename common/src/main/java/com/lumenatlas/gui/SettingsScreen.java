@@ -156,7 +156,7 @@ public class SettingsScreen extends LumenScreen {
         });
         g.full();
         addRenderableWidget(new LumenButton(g.x, g.y, g.colW, 18, Component.translatable("lumenatlas.settings.advanced.open_folder"),
-            b -> com.mojang.blaze3d.Blaze3D.openPath(LumenAtlas.dataDir())));
+            b -> Compat.openPath(LumenAtlas.dataDir())));
         WorldSession session = LumenAtlas.session();
         if (session != null) {
             addRenderableWidget(new LumenButton(g.x + g.colW + 6, g.y, g.colW, 18,

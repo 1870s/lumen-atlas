@@ -1,36 +1,38 @@
 package com.lumenatlas.seed;
 
 import com.lumenatlas.LumenAtlas;
+import com.lumenatlas.compat.Compat;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import net.minecraft.client.Minecraft;
-import net.minecraft.commands.Commands;
+import net.minecraft.core.HolderLookup;
+import net.minecraft.core.LayeredRegistryAccess;
+import net.minecraft.core.Registry;
 import net.minecraft.core.RegistryAccess;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
+import net.minecraft.server.RegistryLayer;
 import net.minecraft.server.WorldLoader;
 import net.minecraft.server.packs.repository.PackRepository;
 import net.minecraft.server.packs.repository.ServerPacksSource;
 import net.minecraft.server.packs.resources.CloseableResourceManager;
-import net.minecraft.server.permissions.LevelBasedPermissionSet;
-import net.minecraft.util.Util;
+import net.minecraft.tags.TagLoader;
 import net.minecraft.world.level.LevelHeightAccessor;
 import net.minecraft.world.level.WorldDataConfiguration;
 import net.minecraft.world.level.chunk.ChunkGenerator;
 import net.minecraft.world.level.chunk.ChunkGeneratorStructureState;
 import net.minecraft.world.level.dimension.DimensionType;
 import net.minecraft.world.level.dimension.LevelStem;
-import net.minecraft.world.level.levelgen.NoiseBasedChunkGenerator;
-import net.minecraft.world.level.levelgen.NoiseRouterData;
 import net.minecraft.world.level.levelgen.RandomState;
 import net.minecraft.world.level.levelgen.WorldDimensions;
 import net.minecraft.world.level.levelgen.presets.WorldPreset;
 import net.minecraft.world.level.levelgen.presets.WorldPresets;
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplateManager;
-import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.storage.LevelStorageSource;
 
 /**
@@ -63,6 +65,7 @@ public final class WorldgenLoader {
 
     private record Loaded(RegistryAccess.Frozen registries, CloseableResourceManager resources, StructureTemplateManager templates) {}
 
+    private static final long LOAD_TIMEOUT_S = 60;
     private static Loaded loaded;
     private static final Map<Preset, WorldDimensions> DIMENSIONS = new HashMap<>();
 
@@ -78,9 +81,7 @@ public final class WorldgenLoader {
         if (stem == null) return null;
         ChunkGenerator generator = stem.generator();
         DimensionType type = stem.type().value();
-        RandomState randomState = generator instanceof NoiseBasedChunkGenerator noise
-            ? RandomState.create(data.registries.lookupOrThrow(Registries.NOISE), seed, noise.generatorSettings().value())
-            : RandomState.create(data.registries.lookupOrThrow(Registries.NOISE), seed, false, Blocks.STONE.defaultBlockState(), 63, NoiseRouterData.none());
+        RandomState randomState = com.lumenatlas.compat.Compat.randomState(data.registries, seed, generator);
         ChunkGeneratorStructureState state = generator.createState(data.registries.lookupOrThrow(Registries.STRUCTURE_SET), randomState, seed);
         return new WorldgenContext(seed, data.registries, generator, randomState, state, data.templates,
             LevelHeightAccessor.create(type.minY(), type.height()));
@@ -90,29 +91,32 @@ public final class WorldgenLoader {
         if (loaded != null) return loaded;
         long start = System.currentTimeMillis();
         Minecraft mc = Minecraft.getInstance();
+        // Only the world generation registries are needed (with their tags), so this does the first half of what
+        // WorldLoader does for the "Create World" screen and skips the server resources (recipes, advancements,
+        // functions, loot tables). Those are slow, and on some loaders their reload hooks expect a running server.
         PackRepository packs = new PackRepository(new ServerPacksSource(mc.directoryValidator()));
         WorldLoader.PackConfig packConfig = new WorldLoader.PackConfig(packs, WorldDataConfiguration.DEFAULT, false, true);
-        WorldLoader.InitConfig init = new WorldLoader.InitConfig(packConfig, Commands.CommandSelection.INTEGRATED, LevelBasedPermissionSet.GAMEMASTER);
-        Loaded result = WorldLoader.<Void, Loaded>load(init,
-            context -> new WorldLoader.DataLoadOutput<>(null, context.datapackDimensions()),
-            (resources, managers, registries, cookie) -> {
-                RegistryAccess.Frozen access = registries.compositeAccess();
-                LevelStorageSource.LevelStorageAccess storage;
-                try {
-                    Path cache = LumenAtlas.dataDir().resolve("seedmap-cache");
-                    Files.createDirectories(cache);
-                    storage = LevelStorageSource.createDefault(cache).createAccess("templates");
-                } catch (java.io.IOException e) {
-                    throw new java.io.UncheckedIOException(e);
-                }
-                StructureTemplateManager templates = new StructureTemplateManager(resources, storage, mc.getFixerUpper(),
-                    access.lookupOrThrow(Registries.BLOCK));
-                return new Loaded(access, resources, templates);
-            },
-            Util.backgroundExecutor(), Util.backgroundExecutor()).join();
+        CloseableResourceManager resources = packConfig.createResourceManager().getSecond();
+        try {
+            LayeredRegistryAccess<RegistryLayer> layers = RegistryLayer.createRegistryAccess();
+            List<Registry.PendingTags<?>> staticTags = TagLoader.loadTagsForExistingRegistries(resources, layers.getLayer(RegistryLayer.STATIC));
+            RegistryAccess.Frozen worldContext = layers.getAccessForLoading(Compat.worldLayer());
+            List<HolderLookup.RegistryLookup<?>> lookups = TagLoader.buildUpdatedLookups(worldContext, staticTags);
+            RegistryAccess.Frozen worldRegistries = Compat.loadWorldRegistries(resources, lookups)
+                .get(LOAD_TIMEOUT_S, TimeUnit.SECONDS);
+            RegistryAccess.Frozen access = layers.replaceFrom(Compat.worldLayer(), worldRegistries).compositeAccess();
+            Path cache = LumenAtlas.dataDir().resolve("seedmap-cache");
+            Files.createDirectories(cache);
+            LevelStorageSource.LevelStorageAccess storage = LevelStorageSource.createDefault(cache).createAccess("templates");
+            StructureTemplateManager templates = new StructureTemplateManager(resources, storage, mc.getFixerUpper(),
+                access.lookupOrThrow(Registries.BLOCK));
+            loaded = new Loaded(access, resources, templates);
+        } catch (Exception e) {
+            resources.close();
+            throw e;
+        }
         LumenAtlas.LOGGER.info("Lumen Atlas: loaded vanilla world generation data for the seed map in {} ms", System.currentTimeMillis() - start);
-        loaded = result;
-        return result;
+        return loaded;
     }
 
     /** True for dimensions the vanilla presets define (data pack dimensions cannot be predicted offline). */

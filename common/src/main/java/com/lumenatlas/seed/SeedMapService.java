@@ -371,7 +371,7 @@ public final class SeedMapService {
         if (level == null) return null;
         var source = level.getChunkSource();
         return new WorldgenContext(level.getSeed(), level.registryAccess(), source.getGenerator(), source.randomState(),
-            source.getGeneratorState(), server.getStructureTemplateManager(), level);
+            source.getGeneratorState(), com.lumenatlas.compat.Compat.templates(server), level);
     }
 
     private void computeCell(DimState state, int gen, WorldgenContext ctx, SetInfo info, int gx, int gz, long key) {
