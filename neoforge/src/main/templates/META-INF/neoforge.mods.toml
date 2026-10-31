@@ -1,0 +1,30 @@
+license="${mod_license}"
+issueTrackerURL="https://github.com/1870s/lumen-atlas/issues"
+
+[[mods]]
+modId="${mod_id}"
+version="${mod_version}"
+displayName="${mod_name}"
+authors="1870s"
+iconFile="assets/lumenatlas/icon.png"
+displayURL="https://github.com/1870s/lumen-atlas"
+description='''
+A client-side minimap and world map with automatic structure markers, waypoints and an offline seed map.
+Press M for the world map.
+'''
+# Client-only mod: the server does not need it and its version is never checked.
+displayTest="IGNORE_ALL_VERSION"
+
+[[dependencies.${mod_id}]]
+    modId="neoforge"
+    type="required"
+    versionRange="${neoforge_range}"
+    ordering="NONE"
+    side="CLIENT"
+
+[[dependencies.${mod_id}]]
+    modId="minecraft"
+    type="required"
+    versionRange="${minecraft_range}"
+    ordering="NONE"
+    side="CLIENT"

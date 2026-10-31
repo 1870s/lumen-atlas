@@ -1,0 +1,29 @@
+// Root project: only shared settings. The mod is built by the versions/<mc>/<loader> projects,
+// which all compile the loader independent code from common/.
+plugins {
+    id 'net.fabricmc.fabric-loom' apply false
+    id 'net.neoforged.moddev' apply false
+}
+
+tasks.named('wrapper', Wrapper) {
+    distributionType = Wrapper.DistributionType.BIN
+}
+
+// Windows cannot start programs in folders whose path is longer than 260 characters, and NeoForge's setup does
+// that deep inside the build folder. When the project itself sits in a very deep folder, builds and test runs
+// go to a short folder in Gradle's home instead.
+ext.outsideDir = rootDir.absolutePath.length() > 100 ? new File(gradle.gradleUserHomeDir, 'lumenatlas') : null
+
+subprojects {
+    version = mod_version
+    group = mod_group_id
+
+    if (rootProject.outsideDir != null) layout.buildDirectory = new File(rootProject.outsideDir, "build/${name}")
+    // Game folder of the self test run.
+    ext.selfTestDir = rootProject.outsideDir != null ? new File(rootProject.outsideDir, "run/${name}") : file('run')
+
+    // Release jars of every version and loader are collected in build/libs at the root.
+    tasks.withType(Jar).configureEach {
+        destinationDirectory = rootProject.layout.buildDirectory.dir('libs')
+    }
+}

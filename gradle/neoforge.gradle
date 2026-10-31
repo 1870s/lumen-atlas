@@ -1,0 +1,74 @@
+// Build logic shared by every NeoForge project (versions/<mc>/neoforge). The Minecraft and NeoForge versions
+// come from versions/<mc>/target.properties.
+def target = new Properties()
+file('../target.properties').withInputStream { target.load(it) }
+
+base {
+    archivesName = "${mod_id}-neoforge-mc${target.label}"
+}
+
+// Minecraft 26.x runs on Java 25.
+java.toolchain.languageVersion = JavaLanguageVersion.of(25)
+
+sourceSets.main {
+    java.srcDir rootProject.file('common/src/core/java')
+    java.srcDir rootProject.file('common/src/main/java')
+    java.srcDir rootProject.file("common/src/compat/${target.compat}/java")
+    java.srcDir rootProject.file('common/src/dev/java')
+    java.srcDir rootProject.file('neoforge/src/main/java')
+    resources.srcDir rootProject.file('common/src/main/resources')
+}
+
+neoForge {
+    version = target.neo_version
+
+    runs {
+        client {
+            client()
+        }
+        // Smoke test: creates a test world, explores it, and screenshots the minimap, world map and screens.
+        selfTest {
+            client()
+            gameDirectory = project.selfTestDir
+            systemProperty 'lumenatlas.selftest', 'true'
+            programArguments.addAll '--width', '1600', '--height', '900'
+        }
+        configureEach {
+            logLevel = org.slf4j.event.Level.INFO
+        }
+    }
+
+    mods {
+        "${mod_id}" {
+            sourceSet(sourceSets.main)
+        }
+    }
+}
+
+// Expands ${...} placeholders in neoforge/src/main/templates (neoforge.mods.toml).
+var generateModMetadata = tasks.register("generateModMetadata", ProcessResources) {
+    var replaceProperties = [
+            minecraft_range: target.neo_minecraft_range,
+            neoforge_range : target.neo_loader_range,
+            mod_id         : mod_id,
+            mod_name       : mod_name,
+            mod_license    : mod_license,
+            mod_version    : mod_version,
+    ]
+    inputs.properties replaceProperties
+    expand replaceProperties
+    from rootProject.file('neoforge/src/main/templates')
+    into layout.buildDirectory.dir('generated/sources/modMetadata')
+}
+sourceSets.main.resources.srcDir generateModMetadata
+neoForge.ideSyncTask generateModMetadata
+
+// The self test is for development only and is not shipped.
+tasks.named('jar', Jar) {
+    exclude 'com/lumenatlas/dev/**'
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.compilerArgs += ['-Xlint:deprecation', '-Xlint:unchecked']
+}

@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "id": "lumenatlas",
+  "version": "${version}",
+  "name": "Lumen Atlas",
+  "description": "A client-side minimap and world map with automatic structure markers, waypoints and an offline seed map. Press M for the world map.",
+  "authors": ["1870s"],
+  "contact": {
+    "sources": "https://github.com/1870s/lumen-atlas",
+    "issues": "https://github.com/1870s/lumen-atlas/issues"
+  },
+  "license": "MIT",
+  "icon": "assets/lumenatlas/icon.png",
+  "environment": "client",
+  "entrypoints": {
+    "client": ["com.lumenatlas.fabric.LumenAtlasFabric"]
+  },
+  "depends": {
+    "fabricloader": ">=${fabric_loader_version}",
+    "minecraft": "${minecraft_dependency}",
+    "java": ">=25",
+    "fabric-api": "*"
+  }
+}

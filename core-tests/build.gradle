@@ -1,0 +1,38 @@
+// Plain Java project: compiles the Minecraft independent sources of common/src/core and runs their unit tests.
+plugins {
+    id 'java'
+}
+
+repositories {
+    mavenCentral()
+}
+
+java.toolchain.languageVersion = JavaLanguageVersion.of(25)
+
+sourceSets.main.java.srcDir rootProject.file('common/src/core/java')
+
+dependencies {
+    // Minecraft ships Gson; the core code uses it for JSON, so the tests need it too.
+    implementation 'com.google.code.gson:gson:2.14.0'
+    testImplementation platform("org.junit:junit-bom:${junit_version}")
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.compilerArgs += ['-Xlint:all', '-Xlint:-serial']
+}
+
+tasks.named('test', Test) {
+    useJUnitPlatform()
+    testLogging {
+        events 'passed', 'skipped', 'failed'
+        exceptionFormat = 'full'
+    }
+}
+
+// Not a mod jar: keep it out of build/libs.
+tasks.named('jar', Jar) {
+    enabled = false
+}

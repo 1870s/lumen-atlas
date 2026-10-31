@@ -1,0 +1,61 @@
+// Build logic shared by every Fabric project (versions/<mc>/fabric). The Minecraft and API versions come
+// from versions/<mc>/target.properties.
+def target = new Properties()
+file('../target.properties').withInputStream { target.load(it) }
+
+base {
+    archivesName = "${mod_id}-fabric-mc${target.label}"
+}
+
+sourceSets.main {
+    java.srcDir rootProject.file('common/src/core/java')
+    java.srcDir rootProject.file('common/src/main/java')
+    java.srcDir rootProject.file("common/src/compat/${target.compat}/java")
+    java.srcDir rootProject.file('common/src/dev/java')
+    java.srcDir rootProject.file('fabric/src/main/java')
+    resources.srcDir rootProject.file('common/src/main/resources')
+    resources.srcDir rootProject.file('fabric/src/main/resources')
+}
+
+loom {
+    runs {
+        // Smoke test: creates a test world, explores it, and screenshots the minimap, world map and screens.
+        selfTest {
+            client()
+            runDir = project.selfTestDir.absolutePath
+            property('lumenatlas.selftest', 'true')
+            programArgs('--width', '1600', '--height', '900')
+        }
+    }
+}
+
+dependencies {
+    // Minecraft 26.x is unobfuscated: no mappings, no remapping.
+    minecraft "com.mojang:minecraft:${target.minecraft_version}"
+    implementation "net.fabricmc:fabric-loader:${fabric_loader_version}"
+    implementation "net.fabricmc.fabric-api:fabric-api:${target.fabric_api_version}"
+}
+
+processResources {
+    def props = [version: version, fabric_loader_version: fabric_loader_version,
+                 minecraft_dependency: target.fabric_minecraft_dependency]
+    inputs.properties props
+    filesMatching('fabric.mod.json') {
+        expand props
+    }
+}
+
+java {
+    toolchain.languageVersion = JavaLanguageVersion.of(25)
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.release = 25
+    options.encoding = 'UTF-8'
+    options.compilerArgs += ['-Xlint:deprecation', '-Xlint:unchecked']
+}
+
+// The self test is for development only and is not shipped.
+tasks.named('jar', Jar) {
+    exclude 'com/lumenatlas/dev/**'
+}
